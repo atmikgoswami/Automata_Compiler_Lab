@@ -19,87 +19,80 @@ void printDFA(vector<vector<int>>& table, vector<char>& alphabets){
 	}
 }
 
+bool areEquivalent(int i, int j, const vector<vector<int>>& dfa, const vector<int>& partition, int alphabetSize) {
+    for (int z = 0; z < alphabetSize; ++z) {
+        if (partition[dfa[i][z]] != partition[dfa[j][z]]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 vector<vector<int>> minimizeDFA(const vector<vector<int>>& dfa, const vector<int>& final_states, int noOfStates, int alphabetSize) {
-    vector<int> isFinal(noOfStates, 0);
-    for (int fs : final_states) isFinal[fs] = 1;
+    vector<int> partition(noOfStates, -1);
+    set<int> final_set(final_states.begin(), final_states.end());
 
-    set<int> F, NF; 
-    for (int i = 0; i < noOfStates; i++) {
-        if (isFinal[i]) F.insert(i);
-        else NF.insert(i);
+    // Initial partition: final and non-final states are grouped separately
+    int accept_idx = *final_set.begin(), reject_idx = -1;
+    for (int i : final_set) {
+        partition[i] = accept_idx;
+    }
+    for (int i = 0; i < noOfStates; ++i) {
+        if (partition[i] < 0) {
+            if (reject_idx < 0) reject_idx = i;
+            partition[i] = reject_idx;
+        }
     }
 
-    set<set<int>> partitions = {F, NF};
-
-    queue<set<int>> partitionQueue;
-    partitionQueue.push(F);
-    partitionQueue.push(NF);
-
-    while (!partitionQueue.empty()) {
-        set<int> currentPartition = partitionQueue.front();
-        partitionQueue.pop();
-
-        for (int symbol = 0; symbol < alphabetSize; symbol++) {
-
-            map<int, set<int>> transitionGroups;
-            for (int state : currentPartition) {
-                int nextState = dfa[state][symbol];
-                for (const auto& partition : partitions) {
-                    if (partition.count(nextState)) {
-                        transitionGroups[nextState].insert(state);
-                        break;
-                    }
+    // Iterative refinement of partition
+    while (true) {
+        vector<int> new_partition(noOfStates, -1);
+        int i = 0;
+        while (i < noOfStates) {
+            new_partition[i] = i;
+            int i_next = noOfStates;
+            for (int j = i + 1; j < noOfStates; ++j) {
+                if (new_partition[j] >= 0) continue;
+                if (partition[i] == partition[j] && areEquivalent(i, j, dfa, partition, alphabetSize)) {
+                    new_partition[j] = i; 
+                } else if (i_next == noOfStates) {
+                    i_next = j; // Move to the first unmerged state
                 }
             }
+            i = i_next;
+        }
+        if (partition == new_partition) break;
+        partition = new_partition;
+    }
 
-            for (const auto& partition : partitions) {
-                set<int> intersect, difference;
-                set_intersection(partition.begin(), partition.end(),
-                                 transitionGroups.begin()->second.begin(),
-                                 transitionGroups.begin()->second.end(),
-                                 inserter(intersect, intersect.begin()));
-                set_difference(partition.begin(), partition.end(),
-                               transitionGroups.begin()->second.begin(),
-                               transitionGroups.begin()->second.end(),
-                               inserter(difference, difference.begin()));
+    // Create minimized DFA
+    vector<vector<int>> minimizedDFA;
+    map<int, int> state_map;
+    int new_state = 0;
 
-                if (!intersect.empty() && !difference.empty()) {
-                    partitions.erase(partition);
-                    partitions.insert(intersect);
-                    partitions.insert(difference);
-
-                    if (intersect.size() < difference.size()) {
-                        partitionQueue.push(intersect);
-                    } else {
-                        partitionQueue.push(difference);
-                    }
-                    break; 
-                }
-            }
+    for (int i = 0; i < noOfStates; ++i) {
+        if (state_map.find(partition[i]) == state_map.end()) {
+            state_map[partition[i]] = new_state++;
         }
     }
 
-    map<int, int> stateMapping; 
-    int newStateIndex = 0;
+    for (auto it:state_map) {
 
-    for (const auto& partition : partitions) {
-        for (int state : partition) {
-            stateMapping[state] = newStateIndex;
+        int i = it.first;
+        //for state i
+        vector<int> temp;
+        for(int j=0;j<alphabetSize;j++){
+
+            int old_dest = dfa[i][j];
+            int new_dest = state_map[partition[old_dest]];
+            temp.push_back(new_dest);
         }
-        newStateIndex++;
-    }
-
-    vector<vector<int>> minimizedDFA(newStateIndex, vector<int>(alphabetSize));
-
-    for (int i = 0; i < noOfStates; i++) {
-        for (int symbol = 0; symbol < alphabetSize; symbol++) {
-            minimizedDFA[stateMapping[i]][symbol] = stateMapping[dfa[i][symbol]];
-        }
+        minimizedDFA.push_back(temp);
     }
 
     return minimizedDFA;
-
 }
+
 
 int main(){
     vector<vector<int>> dfa;
