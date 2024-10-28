@@ -25,7 +25,7 @@ void printNFA(vector<vector<vector<int>>> &transitionTable, vector<char> &alphab
     }
 }
 
-void printDFA(vector<vector<int>> &states, vector<vector<vector<int>>> &dfa, vector<char> &alphabets) {
+void printDFA(vector<vector<int>> &states, vector<vector<vector<int>>> &dfa, vector<char> &alphabets, int noOfStates) {
     cout << "  STATE  |  ";
     int noOfAlphabets = alphabets.size();
     for (int i = 0; i < noOfAlphabets; i++){
@@ -38,7 +38,7 @@ void printDFA(vector<vector<int>> &states, vector<vector<vector<int>>> &dfa, vec
         for (int h = 0; h < states[i].size(); h++)
             cout << "q" << states[i][h] << " ";
         if (states[i].empty()){
-            cout << "^ ";
+            cout << "q"<<noOfStates<<" ";
         }
         cout << "} ";
         for (int j = 0; j < dfa[i].size(); j++){
@@ -47,7 +47,7 @@ void printDFA(vector<vector<int>> &states, vector<vector<vector<int>>> &dfa, vec
                 cout << dfa[i][j][k] << " ";
             }
             if (dfa[i][j].empty()){
-                cout << "^ ";
+                cout << noOfStates;
             }
         }
         cout << endl;
@@ -55,30 +55,31 @@ void printDFA(vector<vector<int>> &states, vector<vector<vector<int>>> &dfa, vec
 }
 
 vector<int> closure(int s, vector<vector<vector<int>>> &v) {
-    vector<int> t;
+    vector<int> t;      
+    set<int> visited;   
     queue<int> q;
+
     t.push_back(s);
-    int a = v[s][v[s].size() - 1].size();
-    for (int i = 0; i < a; i++){
-        t.push_back(v[s][v[s].size() - 1][i]);
-        q.push(t[i]);
-    }
-    while (!q.empty()){
+    visited.insert(s);
+    q.push(s);
+
+    while (!q.empty()) {
         int f = q.front();
         q.pop();
-        if (!v[f][v[f].size() - 1].empty()){
-            int u = v[f][v[f].size() - 1].size();
-            for (int i = 0; i < u; i++){
-                int y = v[f][v[f].size() - 1][i];
-                if (find(t.begin(), t.end(), y) == t.end()){
-                    t.push_back(y);
-                    q.push(y);
-                }
+
+        for (int y : v[f][v[f].size() - 1]) { 
+            if (visited.find(y) == visited.end()) { 
+                t.push_back(y);
+                visited.insert(y);
+                q.push(y); 
             }
         }
     }
+
+    sort(t.begin(), t.end());
     return t;
 }
+
 
 int main() {
 
@@ -165,7 +166,7 @@ int main() {
         }
         dfa.push_back(v);
     }
-    printDFA(states, dfa, alphabets);
+    printDFA(states, dfa, alphabets, noOfStates);
 
     return 0;
 }
